@@ -1,0 +1,133 @@
+﻿@using CargaDescarga.OpenStreetMap
+
+@implements IDialogContentComponent<CustomPlace>
+
+@inject OpenStreetMapService OpenStreetMapService
+@inject IJSRuntime JsRuntime
+
+<style>
+    .dialog-body-custom {
+        height: 80vh;
+    }
+
+    .button-yellow {
+        background: linear-gradient(rgba(250,196,55,1), rgba(197,145,7,1));
+        opacity: 1;
+        border: 1px solid rgba(255,235,130,1);
+        border-top-left-radius: 4px;
+        border-top-right-radius: 4px;
+        border-bottom-left-radius: 4px;
+        border-bottom-right-radius: 4px;
+        font-size: 16px;
+        overflow: hidden;
+    }
+
+    .small-title {
+        color: rgba(255,255,255,1);
+        font-weight: Bold;
+        font-size: 15px;
+        opacity: 1;
+        text-align: left;
+    }
+
+    .results-container {
+        display: flex;        
+        align-items: center;
+        width: 100%;
+        margin-top: 5px;
+    }
+
+    .result-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        background: rgb(0,163,255);
+        background: linear-gradient(90deg, rgba(0,163,255,1) 50%, rgba(8,15,138,1) 100%);
+        color: white;
+        font-size:13px;
+        border: 0.5px solid white;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
+        padding: 5px;
+        margin-top:5px;
+    }
+</style>
+
+@* Header *@
+<FluentDialogHeader ShowDismiss="true">
+    <FluentStack VerticalAlignment="VerticalAlignment.Center">
+        <FluentLabel Typo="Typography.PaneHeader" Style="color:white">
+            @Dialog.Instance.Parameters.Title
+        </FluentLabel>
+    </FluentStack>
+</FluentDialogHeader>
+
+@* Body *@
+<FluentDialogBody Class="dialog-body-custom">
+    <div class="d-flex flex-column h-100">
+        <div class="d-flex flex-column">
+            <FluentTextField @bind-Value="@_searchText"></FluentTextField>
+            <button class="button-yellow" @onclick="() => SearchAsync()">Buscar</button>
+        </div>
+        @if (Places.Any())
+        {
+            <div class="flex-column results-container flex-grow-1 overflow-auto p-0">
+                @foreach (var place in Places)
+                {
+                    <div class="result-item" @onclick="()=>SelectPlace(place)">
+                        <span>@place.Description</span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <span class="small-title">No se han encontrado resultados</span>
+        }
+    </div>
+</FluentDialogBody>
+
+@* Footer *@
+<FluentDialogFooter>
+    <button class="default-filled-button" @onclick="() => CancelAsync()">Cerrar</button>
+</FluentDialogFooter>
+
+
+@code {
+    IJSObjectReference jsModule;
+
+    private List<CustomPlace> Places { get; set; } = new();
+    private string _searchText = string.Empty;
+
+    [CascadingParameter]
+    public FluentDialog Dialog { get; set; } = default!;
+
+    [Parameter]
+    public CustomPlace Content { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            jsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "/Components/OpenStreetMap/SearchAddressDialog.razor.js");
+            await jsModule.InvokeVoidAsync("modifyDialogStyle");
+        }
+    }
+
+    private async Task SelectPlace(CustomPlace selectedPlace)
+    {        
+        await Dialog.CloseAsync(selectedPlace);
+    }
+
+    private async Task CancelAsync()
+    {
+        await Dialog.CancelAsync();
+    }
+    private async Task SearchAsync()
+    {
+        Places = (await OpenStreetMapService.GetOpenStreetMapAsync(_searchText)).ToList();
+    }
+}

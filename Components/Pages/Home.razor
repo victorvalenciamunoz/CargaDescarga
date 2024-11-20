@@ -1,0 +1,225 @@
+﻿@page "/"
+
+@using Blazicons
+@using Blazorise.LottieAnimation
+@using CargaDescarga.Components.OpenStreetMap
+@using CargaDescarga.Components.Pois
+@using CargaDescarga.OpenStreetMap
+@using CargaDescarga.Pois
+@using GoogleMapsComponents
+@using GoogleMapsComponents.Maps
+@using Microsoft.FluentUI.AspNetCore.Components
+
+@inject IJSRuntime JsRuntime
+@inject IDialogService dialogService
+@inject IGeolocation Geolocation
+@inject PoiService PoiService
+
+<div class="d-flex flex-column" style="height:100%">
+
+    <div style="display:@(_isBusy?"block":"none"); height:100%">
+        <LottieAnimation Path="/animations/ball_loader.json" Style="height: 250px;" Loop="true" />
+    </div>
+    <div class="flex-fill" style="color:black">
+        <GoogleMap @ref="@_map1" Id="map1" Options="@mapOptions"
+                   OnAfterInit="AfterMapRender"></GoogleMap>
+    </div>
+    <div class="col-12 d-flex flex-row" style="height:80px; ">
+        <div class="footer-menu-item flex-grow-1 d-flex flex-column justify-content-center align-items-center" @onclick="CenterUserPositionAsync">
+            Mi posición
+            <div style="font-size: 200%;">
+                <Blazicon Svg="FluentUiIcon.Location"></Blazicon>
+            </div>
+        </div>
+        <div class="footer-menu-item flex-grow-1 d-flex flex-column justify-content-center align-items-center" @onclick="OpenSearchAsync">
+            Búsqueda
+            <div style="font-size: 200%;">
+                <Blazicon Svg="FluentUiIcon.GlobeSearch"></Blazicon>
+            </div>
+        </div>
+        <div class="footer-menu-item flex-grow-1 d-flex flex-column justify-content-center align-items-center" @onclick="OpenContribute">
+            Contribuir
+            <div style="font-size: 200%;">
+                <Blazicon Svg="FluentUiIcon.PeopleTeam"></Blazicon>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    private LatLngBounds _bounds;
+    private GoogleMap _map1;
+    private MapOptions mapOptions;
+    private List<Marker> _markers = new List<Marker>();
+    private List<PuntoDeInteres> _pois = new List<PuntoDeInteres>();
+    (double Latitude, double Longitude)? currentLocation;
+
+    private bool _isBusy = true;
+
+    protected override async Task OnInitializedAsync()
+    {   
+        await CenterUserPositionAsync();        
+    }
+
+    private void SetMapOptions(double latitud, double longitud)
+    {
+        mapOptions = new MapOptions()
+            {
+                MapTypeId = MapTypeId.Roadmap,
+                Center = new LatLngLiteral
+                {
+                    Lat = latitud,
+                    Lng = longitud
+                },
+                Zoom = 15
+            };
+    }
+
+    private async Task AfterMapRender()
+    {
+        _bounds = await LatLngBounds.CreateAsync(_map1.JsRuntime);
+        if (currentLocation is not null)
+        {
+            _pois = (await GetPoisAsync(currentLocation.Value.Latitude, currentLocation.Value.Longitude)).ToList();
+
+            await AddMarkersToMapAsync(_pois, (currentLocation.Value.Latitude, currentLocation.Value.Longitude));
+
+            if (mapOptions.Center != null)
+            {
+                await _map1.InteropObject.SetCenter(mapOptions.Center);
+                await _map1.InteropObject.SetZoom(mapOptions.Zoom ?? 15);
+                await _map1.InteropObject.SetMapTypeId(mapOptions.MapTypeId);
+            }
+        }
+    }
+
+    private async Task OnMarkerClick(LatLngLiteral position)
+    {
+        if (_pois.Any())
+        {
+            var data = _pois.FirstOrDefault(p => p.Latitud == position.Lat && p.Longitud == position.Lng);
+            var dialog = await dialogService.ShowDialogAsync<PoiInfoDetailDialog>(data, new DialogParameters()
+                {
+                    Title = $"Detalle de la ubicación",
+                    PreventDismissOnOverlayClick = true,
+                    PreventScroll = true,
+                });
+        }
+    }
+
+    private async Task<IEnumerable<PuntoDeInteres>> GetPoisAsync(double latitude, double longitude)
+    {
+        return await PoiService.GetPoisAsync(latitude, longitude, 0, 0);
+    }
+
+    private async Task AddMarkersToMapAsync(List<PuntoDeInteres> pois, (double latitud, double longitud) refPosition)
+    {
+        await ClearMarkersAsync();
+
+        var markerPositions = new List<LatLngLiteral>();
+
+        LatLngLiteral currentPositionMark = new LatLngLiteral { Lat = refPosition.latitud, Lng = refPosition.longitud };
+        markerPositions.Add(currentPositionMark);
+        var currentPositionmarkerOptions = new MarkerOptions
+            {
+                Position = currentPositionMark,
+                Map = _map1.InteropObject,
+                Icon = new GoogleMapsComponents.Maps.Icon
+                {
+                    Url = "/images/userlocation.png",
+                    ScaledSize = new Size { Width = 20, Height = 30 }
+                }
+            };
+
+        var marker = await Marker.CreateAsync(JsRuntime, currentPositionmarkerOptions);
+        _markers.Add(marker);
+
+        foreach (var position in pois)
+        {
+            LatLngLiteral newMark = new LatLngLiteral { Lat = position.Latitud, Lng = position.Longitud };
+            markerPositions.Add(newMark);
+            var markerOptions = new MarkerOptions
+                {
+                    Position = newMark,
+                    Map = _map1.InteropObject,
+                    Icon = new GoogleMapsComponents.Maps.Icon
+                    {
+                        Url = "/images/pinmap.png",
+                        ScaledSize = new Size { Width = 18, Height = 27 }
+                    }
+                };
+
+            marker = await Marker.CreateAsync(JsRuntime, markerOptions);
+            await marker.AddListener("click", async () => await OnMarkerClick(newMark));
+
+            _markers.Add(marker);
+        }
+    }
+
+    private async Task ClearMarkersAsync()
+    {
+        foreach (var marker in _markers)
+        {
+            await marker.SetMap(null);
+        }
+        _markers.Clear();
+    }
+
+    private async Task<(double Latitude, double Longitude)?> GetLocationAsync()
+    {
+        try
+        {
+            var request = new GeolocationRequest(GeolocationAccuracy.Medium);
+            var location = await Geolocation.GetLocationAsync(request);
+            if (location != null)
+            {
+                Console.WriteLine($"Latitude: {location.Latitude}, Longitude: {location.Longitude}");
+                return (location.Latitude, location.Longitude);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Manejar errores aquí
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    private async Task CenterUserPositionAsync()
+    {
+        _isBusy = true;
+        currentLocation = await GetLocationAsync();
+        SetMapOptions(currentLocation.Value.Latitude, currentLocation.Value.Longitude);
+        await AfterMapRender();
+        _isBusy = false;
+    }
+
+    private async Task OpenSearchAsync(MouseEventArgs e)
+    {
+        var data = new CustomPlace();
+        var dialog = await dialogService.ShowDialogAsync<SearchAddressDialog>(data, new DialogParameters()
+            {
+                Title = $"Buscar dirección",
+                PreventDismissOnOverlayClick = true,
+                PreventScroll = true,
+            });
+
+        var result = await dialog.Result;
+        if (!result.Cancelled && result.Data is not null)
+        {
+            _isBusy = true;
+            var resultData = ((CustomPlace)result.Data);
+            currentLocation = ((double)resultData.Latitude, (double)resultData.Longitude);
+            SetMapOptions(currentLocation.Value.Latitude, currentLocation.Value.Longitude);
+            await AfterMapRender();
+            _isBusy = false;
+        }
+    }
+
+    private async Task OpenContribute()
+    {
+        await Browser.OpenAsync("https://sycapps.net/contactform", BrowserLaunchMode.SystemPreferred);
+    }
+}

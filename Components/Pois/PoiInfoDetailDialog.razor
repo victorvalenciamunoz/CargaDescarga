@@ -1,0 +1,76 @@
+﻿@implements IDialogContentComponent<PuntoDeInteres>
+
+@inject IJSRuntime JsRuntime
+<style>
+    .dialog-body-custom {
+        color: white;
+    }
+</style>
+@* Header *@
+<FluentDialogHeader ShowDismiss="true">
+    <FluentStack VerticalAlignment="VerticalAlignment.Center">
+        <FluentLabel Typo="Typography.PaneHeader" Style="color:white">
+            @Dialog.Instance.Parameters.Title
+        </FluentLabel>
+    </FluentStack>
+</FluentDialogHeader>
+
+@* Body *@
+<FluentDialogBody Class="dialog-body-custom">
+    <div class="d-flex flex-column">
+        <div class="d-flex flex-row">
+            <span>@Content.Descripcion</span>
+        </div>
+        <div class="d-flex flex-row">
+            <span>@Content.Calle</span> <span>@Content.NumFinca</span>
+        </div>
+        <div class="d-flex flex-row">
+            <span><strong>Forma aparcamiento:</strong></span><span>@Content.FormaAparcamiento</span>
+        </div>
+        <div class="d-flex flex-row">
+            <span><strong>Plazas:</strong></span><span>@Content.NumPlazas</span>
+        </div>
+    </div>
+</FluentDialogBody>
+
+@* Footer *@
+<FluentDialogFooter>
+    <button class="button-yellow" @onclick="() => Goto()">Cómo llegar</button>
+</FluentDialogFooter>
+
+@code {
+    IJSObjectReference jsModule;
+
+    [Parameter]
+    public PuntoDeInteres Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog Dialog { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            jsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "/Components/Pois/PoiInfoDetailDialog.razor.js");
+            await jsModule.InvokeVoidAsync("modifyDialogStyle");
+        }
+    }
+
+    private async Task Goto()
+    {
+        var location = new Location(Content.Latitud, Content.Longitud);
+        var options = new MapLaunchOptions { Name = $"{Content.Calle} - {Content.NumFinca}.{Content.Texto}" };
+
+        await Map.Default.OpenAsync(location, options);
+    }
+
+    private async Task SaveAsync()
+    {
+        await Dialog.CloseAsync(Content);
+    }
+
+    private async Task CancelAsync()
+    {
+        await Dialog.CancelAsync();
+    }
+}
