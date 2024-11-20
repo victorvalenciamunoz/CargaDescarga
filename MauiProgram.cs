@@ -3,7 +3,6 @@ using Blazorise.Bootstrap5;
 using Blazorise.Icons.FontAwesome;
 using CargaDescarga.OpenStreetMap;
 using CargaDescarga.Pois;
-using GoogleMapsComponents;
 using Microsoft.Extensions.Logging;
 using Microsoft.FluentUI.AspNetCore.Components;
 
@@ -30,8 +29,7 @@ namespace CargaDescarga
      .AddBootstrap5Providers()
      .AddFontAwesomeIcons();
 
-            builder.Services.AddMauiBlazorWebView();
-            builder.Services.AddBlazorGoogleMaps("AIzaSyCmn5Breovcda8Ib8ah4TRR9kGdLj8aOzs");
+            builder.Services.AddMauiBlazorWebView();            
             builder.Services.AddFluentUIComponents();
             builder.Services.AddSingleton<IGeolocation>(Geolocation.Default);
             builder.Services.AddHttpClient<OpenStreetMapService>(client =>
