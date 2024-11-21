@@ -11,6 +11,13 @@ export function initializeMap(dotNetRef) {
         maxZoom: 19,
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
+
+    //Esto me hará falta en la web
+    //map.on('click', function (e) {
+    //    var lat = e.latlng.lat;
+    //    var lng = e.latlng.lng;
+    //    dotNetRef.invokeMethodAsync('OnMapClick', lat, lng);
+    //});
 }
 
 export function AddCurrentUserLocationMarker(lat, lon) {
@@ -32,18 +39,18 @@ export function AddCurrentUserLocationMarker(lat, lon) {
 export function AddMarkers(positions) {
     var customIcon = L.icon({
         iconUrl: '/images/pinmap.png', // Ruta a tu imagen personalizada
-        iconSize: [24, 32], // Tamaño del icono
-        iconAnchor: [16, 32], // Punto del icono que se corresponderá con la posición del marcador
-        popupAnchor: [0, -32] // Punto desde el cual se abrirá el popup relativo al icono
+        iconSize: [24, 32], // Tamaño del icono        
     });
     positions.forEach(marker => {
-        console.log(marker);
-        var leafletMarker = L.marker([marker.lat, marker.lon], {icon: customIcon}).addTo(map);
-        //leafletMarker.bindPopup(marker.info);
+        var leafletMarker = L.marker([marker.lat, marker.lon], { icon: customIcon }).addTo(map);
 
         // Evento de clic para llamar a Blazor
         leafletMarker.on('click', function () {
             componentRef.invokeMethodAsync('MarkerClicked', marker.lat, marker.lon);
+            leafletMarker.getElement().classList.add('bounce-animation');
+            setTimeout(() => {
+                leafletMarker.getElement().classList.remove('bounce-animation');
+            }, 1000);
         });
         markers.push(marker);
     });

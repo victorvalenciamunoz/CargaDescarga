@@ -12,16 +12,12 @@
 @inject IDialogService dialogService
 @inject IGeolocation Geolocation
 @inject PoiService PoiService
-<style>
-    .leaflet-bottom{
-        z-index:500!important;
-    }
-</style>
+
 <div class="d-flex flex-column" style="height:100%">
     <div id="map" class="flex-fill" style="color:black; height:100%">
         @if (_isBusy)
         {
-            <LottieAnimation Path="/animations/ball_loader.json" Style="height: 250px;" Loop="true" />
+                <LottieAnimation Path="/animations/ball_loader.json" Style="height: 250px;" Loop="true" />
         }
     </div>
     <div class="col-12 d-flex flex-row" style="height:80px; ">
@@ -59,7 +55,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
-        {            
+        {
             _jsModule = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Home.razor.js");
             await _jsModule.InvokeVoidAsync("initializeMap", DotNetObjectReference.Create(this));
         }
@@ -67,7 +63,7 @@
 
     [JSInvokable]
     public async Task MarkerClicked(double latitude, double longitude)
-    {       
+    {
         if (_pois.Any())
         {
             var data = _pois.FirstOrDefault(p => p.Latitud == latitude && p.Longitud == longitude);
@@ -80,17 +76,25 @@
         }
     }
 
+    //Esto me hará falta en la web
+    // [JSInvokable]
+    // public async Task OnMapClick(double latitude, double longitude)
+    // {
+    //     // Maneja el evento de clic en el mapa aquí
+    //     Console.WriteLine($"Map clicked at Latitude: {latitude}, Longitude: {longitude}");
+    // }
+
     protected override async Task OnInitializedAsync()
     {
         await SetMapUserLocation();
-    }  
+    }
 
     private async Task SetMapUserLocation()
     {
         currentLocation = await GetLocationAsync();
         await InitMap();
     }
-    
+
     private async Task InitMap()
     {
         await CenterUserPositionAsync();
@@ -104,7 +108,7 @@
     private async Task<IEnumerable<PuntoDeInteres>> GetPoisAsync(double latitude, double longitude)
     {
         return await PoiService.GetPoisAsync(latitude, longitude, 0, 0);
-    }    
+    }
 
     private async Task AddMarkersToMapAsync(List<PuntoDeInteres> pois, (double latitud, double longitud) refPosition)
     {
@@ -139,7 +143,7 @@
     private async Task CenterUserPositionAsync()
     {
         _isBusy = true;
-            
+
         if (currentLocation.HasValue)
         {
             await _jsModule.InvokeVoidAsync("AddCurrentUserLocationMarker", currentLocation.Value.Latitude, currentLocation.Value.Longitude);
@@ -162,7 +166,7 @@
         {
             _isBusy = true;
             var resultData = ((CustomPlace)result.Data);
-            currentLocation = ((double)resultData.Latitude, (double)resultData.Longitude);  
+            currentLocation = ((double)resultData.Latitude, (double)resultData.Longitude);
             await InitMap();
             _isBusy = false;
         }
